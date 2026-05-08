@@ -8,16 +8,14 @@ with sync_playwright() as p:
 
     page.on("response", lambda r: print(r.url, r.status))
 
+    def get_course_data(letter, course, course_code, course_code_semester_descr):
+        page.click(f"text={letter}")
+        page.click(f"text={course}")
+        page.click(f"text={course_code}")
+        page.click(f"text={course_code_semester_descr}")
+        return page.content()
 
-    page.click("text=C")
-    page.click("text=CSSE")
-    page.click("text=CSSE1001")
-
-
-
-
-    content = page.content()
-
+    content = get_course_data("C", "CSSE", "CSSE1001", "CSSE1001: Semester 2, 2024")
 
     data = (content[content.find("courseSECATData"): content.find("var title = '")])
     with open("out_csse1001.txt", "w") as f:
