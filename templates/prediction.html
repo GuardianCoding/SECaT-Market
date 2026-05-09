@@ -726,7 +726,8 @@
 
         .history h2,
         .positions h3,
-        .portfolio-summary h3 {
+        .portfolio-summary h3,
+        .achievements-panel h3 {
             margin: 0 0 12px;
             font-size: 18px;
             letter-spacing: -0.03em;
@@ -925,6 +926,126 @@
         .empty {
             color: var(--muted);
             font-size: 14px;
+        }
+
+        .achievement-toast {
+            position: fixed;
+            right: 24px;
+            bottom: 24px;
+            z-index: 9999;
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            width: min(380px, calc(100vw - 32px));
+            padding: 16px;
+            border-radius: 22px;
+            background:
+                linear-gradient(135deg, rgba(250, 204, 21, 0.20), rgba(34, 197, 94, 0.14)),
+                rgba(15, 23, 42, 0.96);
+            border: 1px solid rgba(250, 204, 21, 0.38);
+            box-shadow: 0 24px 70px rgba(0, 0, 0, 0.45);
+            transform: translateY(130%);
+            opacity: 0;
+            pointer-events: none;
+            transition: transform 0.35s ease, opacity 0.35s ease;
+        }
+
+        .achievement-toast.show {
+            transform: translateY(0);
+            opacity: 1;
+        }
+
+        .achievement-toast-emoji {
+            width: 54px;
+            height: 54px;
+            display: grid;
+            place-items: center;
+            border-radius: 18px;
+            font-size: 30px;
+            background: rgba(255, 255, 255, 0.10);
+        }
+
+        .achievement-toast-title {
+            color: #facc15;
+            font-size: 12px;
+            font-weight: 950;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            margin-bottom: 3px;
+        }
+
+        .achievement-toast-name {
+            color: white;
+            font-size: 19px;
+            font-weight: 950;
+            margin-bottom: 2px;
+        }
+
+        .achievement-toast-desc {
+            color: #cbd5e1;
+            font-size: 13px;
+            line-height: 1.35;
+        }
+
+        .achievements-panel {
+            background: rgba(2, 6, 23, 0.48);
+            border: 1px solid rgba(148, 163, 184, 0.18);
+            border-radius: 20px;
+            padding: 16px;
+            margin-top: 16px;
+        }
+
+        .achievements-list {
+            display: grid;
+            gap: 9px;
+            max-height: 260px;
+            overflow-y: auto;
+            padding-right: 4px;
+        }
+
+        .achievement-item {
+            display: grid;
+            grid-template-columns: 42px 1fr;
+            gap: 10px;
+            align-items: center;
+            padding: 10px;
+            border-radius: 14px;
+            border: 1px solid rgba(148, 163, 184, 0.14);
+            background: rgba(15, 23, 42, 0.60);
+        }
+
+        .achievement-item.locked {
+            opacity: 0.48;
+        }
+
+        .achievement-item.unlocked {
+            border-color: rgba(250, 204, 21, 0.34);
+            background:
+                linear-gradient(135deg, rgba(250, 204, 21, 0.12), rgba(34, 197, 94, 0.08)),
+                rgba(15, 23, 42, 0.70);
+        }
+
+        .achievement-emoji {
+            width: 42px;
+            height: 42px;
+            display: grid;
+            place-items: center;
+            border-radius: 13px;
+            font-size: 24px;
+            background: rgba(255, 255, 255, 0.08);
+        }
+
+        .achievement-title {
+            font-size: 14px;
+            font-weight: 950;
+            color: white;
+        }
+
+        .achievement-desc {
+            margin-top: 2px;
+            font-size: 12px;
+            color: #94a3b8;
+            line-height: 1.35;
         }
 
         .fade-in {
@@ -1291,6 +1412,15 @@
                             <h3>Saved Bets</h3>
                             <div id="positionsList" class="empty">No bets yet.</div>
                         </div>
+
+                        <div class="achievements-panel">
+                            <h3>Achievements</h3>
+                            <div id="achievementsList" class="achievements-list"></div>
+
+                            <button class="secondary-btn" onclick="resetAchievements()">
+                                Reset Achievements
+                            </button>
+                        </div>
                     </aside>
                 </div>
             </div>
@@ -1301,9 +1431,73 @@
         const WALLET_KEY = "secat_coin_balance";
         const POSITIONS_KEY = "secat_prediction_positions";
         const STARTING_BALANCE = 500;
+        const ACHIEVEMENTS_KEY = "secat_achievements";
+
+        const ACHIEVEMENTS = {
+            first_win: {
+                title: "First Win",
+                description: "Win your first Higher or Lower round.",
+                emoji: "🎯"
+            },
+            streak_3: {
+                title: "Hot Start",
+                description: "Reach a streak of 3.",
+                emoji: "🔥"
+            },
+            streak_5: {
+                title: "Course Whisperer",
+                description: "Reach a streak of 5.",
+                emoji: "🧠"
+            },
+            streak_10: {
+                title: "SECaT Prophet",
+                description: "Reach a streak of 10.",
+                emoji: "🔮"
+            },
+            coin_collector: {
+                title: "Coin Collector",
+                description: "Reach 1,000 SECaT Coins.",
+                emoji: "🪙"
+            },
+            rich_student: {
+                title: "Rich Student",
+                description: "Reach 5,000 SECaT Coins.",
+                emoji: "💰"
+            },
+            first_bet: {
+                title: "First Bet",
+                description: "Place your first prediction market bet.",
+                emoji: "📈"
+            },
+            market_maker: {
+                title: "Market Maker",
+                description: "Place 5 prediction market bets.",
+                emoji: "🏦"
+            },
+            live_trader: {
+                title: "Live Trader",
+                description: "Place a bet in a live market.",
+                emoji: "⚡"
+            },
+            big_spender: {
+                title: "Big Spender",
+                description: "Place a bet of 500 SC or more.",
+                emoji: "🐋"
+            },
+            diamond_hands: {
+                title: "Diamond Hands",
+                description: "Have 3 open bets at once.",
+                emoji: "💎"
+            },
+            profit_hunter: {
+                title: "Profit Hunter",
+                description: "Win a settled market bet.",
+                emoji: "🚀"
+            }
+        };
 
         const MARKET_WINDOW_SECONDS = 45;
-        const BOT_TICK_MS = 1800;         // how often to poll /api/bot-activity in live mode
+        const BOT_TICK_MS = 1800;
 
         let currentMarket = null;
         let selectedSide = null;
@@ -1342,6 +1536,7 @@
             const safeAmount = Math.max(0, Math.round(amount));
             localStorage.setItem(WALLET_KEY, safeAmount);
             updateWalletDisplay();
+            checkWalletAchievements();
         }
 
         function spendCoins(amount) {
@@ -1361,6 +1556,127 @@
             walletElements.forEach(element => {
                 element.innerText = getWalletBalance() + " SC";
             });
+        }
+
+        function getUnlockedAchievements() {
+            const saved = localStorage.getItem(ACHIEVEMENTS_KEY);
+
+            if (saved === null) {
+                return {};
+            }
+
+            try {
+                const parsed = JSON.parse(saved);
+                return typeof parsed === "object" && parsed !== null ? parsed : {};
+            } catch (error) {
+                return {};
+            }
+        }
+
+        function saveUnlockedAchievements(unlocked) {
+            localStorage.setItem(ACHIEVEMENTS_KEY, JSON.stringify(unlocked));
+        }
+
+        function unlockAchievement(id) {
+            const achievement = ACHIEVEMENTS[id];
+
+            if (!achievement) {
+                return;
+            }
+
+            const unlocked = getUnlockedAchievements();
+
+            if (unlocked[id]) {
+                return;
+            }
+
+            unlocked[id] = {
+                unlockedAt: new Date().toISOString()
+            };
+
+            saveUnlockedAchievements(unlocked);
+            showAchievementToast(achievement);
+            renderAchievementsPanel();
+        }
+
+        function showAchievementToast(achievement) {
+            let toast = document.getElementById("achievementToast");
+
+            if (toast === null) {
+                toast = document.createElement("div");
+                toast.id = "achievementToast";
+                toast.className = "achievement-toast";
+                document.body.appendChild(toast);
+            }
+
+            toast.innerHTML = `
+                <div class="achievement-toast-emoji">${achievement.emoji}</div>
+                <div>
+                    <div class="achievement-toast-title">Achievement unlocked</div>
+                    <div class="achievement-toast-name">${achievement.title}</div>
+                    <div class="achievement-toast-desc">${achievement.description}</div>
+                </div>
+            `;
+
+            toast.classList.add("show");
+
+            setTimeout(() => {
+                toast.classList.remove("show");
+            }, 3300);
+        }
+
+        function renderAchievementsPanel() {
+            const panel = document.getElementById("achievementsList");
+
+            if (panel === null) {
+                return;
+            }
+
+            const unlocked = getUnlockedAchievements();
+            panel.innerHTML = "";
+
+            Object.keys(ACHIEVEMENTS).forEach(id => {
+                const achievement = ACHIEVEMENTS[id];
+                const isUnlocked = Boolean(unlocked[id]);
+
+                const item = document.createElement("div");
+                item.className = isUnlocked
+                    ? "achievement-item unlocked"
+                    : "achievement-item locked";
+
+                item.innerHTML = `
+                    <div class="achievement-emoji">${isUnlocked ? achievement.emoji : "🔒"}</div>
+                    <div>
+                        <div class="achievement-title">${achievement.title}</div>
+                        <div class="achievement-desc">${achievement.description}</div>
+                    </div>
+                `;
+
+                panel.appendChild(item);
+            });
+        }
+
+        function checkWalletAchievements() {
+            const balance = getWalletBalance();
+
+            if (balance >= 1000) {
+                unlockAchievement("coin_collector");
+            }
+
+            if (balance >= 5000) {
+                unlockAchievement("rich_student");
+            }
+        }
+
+        function resetAchievements() {
+            const confirmed = confirm("Reset all achievements?");
+
+            if (!confirmed) {
+                return;
+            }
+
+            localStorage.removeItem(ACHIEVEMENTS_KEY);
+            renderAchievementsPanel();
         }
 
         function loadSavedPositions() {
@@ -1863,6 +2179,16 @@
                 setWalletBalance(currentBalance + totalPayout);
             }
 
+            const hasWinningPosition = positions.some(position => {
+                return position.status === "won";
+            });
+
+            if (hasWinningPosition) {
+                unlockAchievement("profit_hunter");
+            }
+
+            checkWalletAchievements();
+
             savePositions();
             renderPositions();
             updateWalletDisplay();
@@ -2252,6 +2578,28 @@
             positions.push(position);
             savePositions();
 
+            unlockAchievement("first_bet");
+
+            if (positions.length >= 5) {
+                unlockAchievement("market_maker");
+            }
+
+            if (currentMarketMode === "live") {
+                unlockAchievement("live_trader");
+            }
+
+            if (stake >= 500) {
+                unlockAchievement("big_spender");
+            }
+
+            const openPositions = positions.filter(position => position.status === "open");
+
+            if (openPositions.length >= 3) {
+                unlockAchievement("diamond_hands");
+            }
+
+            checkWalletAchievements();
+
             renderPositions();
             updateWalletDisplay();
 
@@ -2370,12 +2718,15 @@
             }
 
             setWalletBalance(STARTING_BALANCE);
+            checkWalletAchievements();
         }
 
         loadCourses();
         loadSavedPositions();
         updateWalletDisplay();
         renderPositions();
+        renderAchievementsPanel();
+        checkWalletAchievements();
     </script>
 </body>
 </html>
