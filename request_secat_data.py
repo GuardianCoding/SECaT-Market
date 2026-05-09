@@ -1,25 +1,25 @@
 from playwright.sync_api import sync_playwright
 
-with sync_playwright() as p:
-    browser = p.chromium.launch()
-    page = browser.new_page()
-    page.goto("https://www.pbi.uq.edu.au/clientservices/SECaT/embedChart.aspx")
+def getCourseData(courseCode: str, sem:int, year: int):
+    with sync_playwright() as p:
+        browser = p.chromium.launch()
+        page = browser.new_page()
+        page.goto("https://www.pbi.uq.edu.au/clientservices/SECaT/embedChart.aspx")
 
 
-    page.on("response", lambda r: print(r.url, r.status))
+        page.on("response", lambda r: r)
 
 
-    page.click("text=C")
-    page.click("text=CSSE")
-    page.click("text=CSSE1001")
+        page.click(f"text={courseCode[:1]}")
+        page.click(f"text={courseCode[:4]}")
+        page.click(f"text={courseCode}")
+        page.wait_for_timeout(500)
+        page.click(f"text={courseCode}: Semester {sem}, {year}")
+        page.wait_for_timeout(500)
+
+        content = page.content()
 
 
-
-
-    content = page.content()
-
-
-    data = (content[content.find("courseSECATData"): content.find("var title = '")])
-    with open("out_csse1001.txt", "w") as f:
-        f.write(data)
-    browser.close()
+        data = (content[content.find("courseSECATData"): content.find("var title = '")])
+        browser.close()
+        return data

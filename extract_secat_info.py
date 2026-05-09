@@ -1,37 +1,42 @@
 import json
 import re
+import request_secat_data
 
-with open("out_csse1001.txt", "r") as f:
-    contents = f.read()
 
-# Remove any comments after the data
+def outToData(courseName: str, sem: int, year: int, questionNum: int):
 
-# Extract the array between courseSECATData = [ ... ];
-match = re.search(r"courseSECATData\s*=\s*(\[.*\])\s*;", contents, re.DOTALL)
 
-if not match:
-    raise ValueError("Could not find courseSECATData array in the file")
+    contents = request_secat_data.getCourseData(courseName, sem, year)
 
-json_text = match.group(1)
+    match = re.search(r"courseSECATData\s*=\s*(\[.*\])\s*;", contents, re.DOTALL)
 
-# Convert the JSON text into Python data
-courseSECATData = json.loads(json_text)
+    if not match:
+        raise ValueError("Could not find courseSECATData array in the file")
 
-# Get Q8 results
-q8_results = [
-    item for item in courseSECATData
-    if item["QUESTION_NAME"].startswith("Q8")
-]
+    json_text = match.group(1)
 
-# Sort by answer number: 1, 2, 3, 4, 5
-q8_results = sorted(q8_results, key=lambda x: int(x["ANSWER"].split()[0]))
+    courseSECATData = json.loads(json_text)
 
-for result in q8_results:
-    print(
-        result["ANSWER"],
-        "- Count:",
-        result["VALUE"],
-        "- Percent:",
-        round(result["PERCENT_ANSWER"], 2),
-        "%"
-    )
+    q_results = [
+        item for item in courseSECATData
+        if item["QUESTION_NAME"].startswith(f"Q{questionNum}")
+    ]
+
+    q_results = sorted(q_results, key=lambda x: int(x["ANSWER"].split()[0]))
+    return q_results
+
+courses = ['comp3301', 'csse1001']
+
+for course in courses:
+    print(f"results for {course}")
+    q8_results = outToData(course, 2, 2024, 3)
+    for result in q8_results:
+        print(
+            result["ANSWER"],
+            "- Count:",
+            result["VALUE"],
+            "- Percent:",
+            round(result["PERCENT_ANSWER"], 2),
+            "%"
+        )
+
