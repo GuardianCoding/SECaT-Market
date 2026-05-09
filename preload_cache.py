@@ -6,7 +6,6 @@ import secat_cache
 
 from game import (
     COURSES,
-    FUN_ANSWER_OPTIONS,
     course_code,
     course_name,
     course_display,

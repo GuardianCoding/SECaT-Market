@@ -141,8 +141,7 @@ COURSES = (
 )
 
 
-FUN_ANSWER_OPTIONS = [1]
-
+RECENT_OFFERING_YEARS = 5
 
 def get_courses_for_groups(group_keys):
     """
@@ -268,6 +267,27 @@ def parse_offering(offering_text: str, name: str = ""):
         "label": offering_text.strip(),
     }
 
+def filter_offerings_to_final_years(offerings, final_year_count=RECENT_OFFERING_YEARS):
+    """
+    Keeps only offerings from the latest N years available for that course.
+
+    Example:
+    If a course has offerings from 2014 to 2025 and final_year_count is 5,
+    this keeps 2021, 2022, 2023, 2024, 2025.
+    """
+
+    if len(offerings) == 0:
+        return []
+
+    latest_year = max(offering["year"] for offering in offerings)
+    earliest_allowed_year = latest_year - final_year_count + 1
+
+    recent_offerings = [
+        offering for offering in offerings
+        if offering["year"] >= earliest_allowed_year
+    ]
+
+    return recent_offerings
 
 def semester_index(sem: int, year: int):
     return year * 2 + sem
@@ -291,7 +311,16 @@ def get_available_offerings_for_course(course_code_value: str, name: str = ""):
 
     if cached is not None:
         print(f"[OFFERINGS CACHE HIT] {course_code_value}")
-        return cached
+
+        recent_cached = filter_offerings_to_final_years(cached)
+
+        print(
+            f"[OFFERINGS FILTER] {course_code_value}: "
+            f"{len(recent_cached)}/{len(cached)} offering(s) kept from final "
+            f"{RECENT_OFFERING_YEARS} year(s)"
+        )
+
+        return recent_cached
 
     print(f"[OFFERINGS LOAD] Checking available offerings for {course_code_value}...")
 
@@ -311,10 +340,23 @@ def get_available_offerings_for_course(course_code_value: str, name: str = ""):
         if parsed is not None:
             parsed_offerings.append(parsed)
 
-    print(f"[OFFERINGS SAVE] {course_code_value}: {len(parsed_offerings)} usable offering(s)")
+    print(
+        f"[OFFERINGS SAVE] {course_code_value}: "
+        f"{len(parsed_offerings)} usable offering(s)"
+    )
+
+    # Save the full list so the cache remains useful later if you change the filter.
     secat_cache.set_cached_json(cache_key, parsed_offerings)
 
-    return parsed_offerings
+    recent_offerings = filter_offerings_to_final_years(parsed_offerings)
+
+    print(
+        f"[OFFERINGS FILTER] {course_code_value}: "
+        f"{len(recent_offerings)}/{len(parsed_offerings)} offering(s) kept from final "
+        f"{RECENT_OFFERING_YEARS} year(s)"
+    )
+
+    return recent_offerings
 
 
 def get_random_course_offering(courses):
@@ -428,7 +470,7 @@ def prepare_round(course_groups=None, max_attempts: int = 20):
         print(f"Using {len(selected_courses)} selected course(s).")
 
         question_num = random.randint(1, 8)
-        answer_num = random.choice(FUN_ANSWER_OPTIONS)
+        answer_num = random.choice([1])
 
         offering_a = get_random_course_offering(selected_courses)
 
