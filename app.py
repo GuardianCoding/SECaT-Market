@@ -43,6 +43,10 @@ def record_trade(market_key: str, direction: str, size: int) -> None:
 
 
 @app.route("/")
+def landing_page():
+    return render_template("main.html")
+
+@app.route("/higher-lower")
 def home():
     return render_template("index.html")
 

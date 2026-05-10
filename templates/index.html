@@ -67,6 +67,15 @@
             color:var(--yellow);
         }
 
+        .brand-link {
+            color: var(--text);
+            text-decoration: none;
+        }
+
+        .brand-link:hover {
+            color: white;
+        }
+
         .start-card h1 {
             margin:18px 0 10px;
             font-size:46px;
@@ -1201,7 +1210,7 @@
     <div class="game">
         <div class="start-screen" id="startScreen">
             <div class="start-card">
-                <div class="brand-big">SECaT <span>Arcade</span></div>
+                <a class="brand brand-link" href="/">SECaT <span>Arcade</span></a>
                 <h1>Choose Your Course Mix</h1>
                 <p>Pick at least one course list. The game will only compare courses from your selected areas.</p>
 
@@ -1215,7 +1224,7 @@
         <div id="gameScreen">
             <div class="top-shell">
                 <div class="nav-bar">
-                    <div class="brand">SECaT <span>Arcade</span></div>
+                    <a class="brand brand-link" href="/">SECaT <span>Arcade</span></a>
                     <div class="nav-links">
                         <a href="/" class="active">Higher or Lower</a>
                         <a href="/prediction">Prediction Market</a>
@@ -2063,9 +2072,7 @@
                 addCoinsToLeaderboard(reward);
                 unlockAchievement("first_win");
 
-                message.innerHTML =
-                    `Correct! +${reward} SC<br>` +
-                    `The old benchmark slides away. The winner takes its place.`;
+                message.innerHTML = `Correct! +${reward} SC`;
 
                 message.classList.add("correct-pop");
 
@@ -2244,8 +2251,6 @@
             document.getElementById("preloadStatus").innerText =
                 "Rolling course forward...";
 
-            message.innerHTML =
-                "The old benchmark is sliding out. The winner is taking its place...";
 
             const leftCard = document.getElementById("leftCard");
             const rightCard = document.getElementById("rightCard");
