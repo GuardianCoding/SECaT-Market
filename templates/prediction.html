@@ -29,14 +29,8 @@
         }
         .brand { font-size:20px; font-weight:950; letter-spacing:-.03em; }
         .brand span { color:var(--yellow); }
-        .brand-link {
-            color: var(--text);
-            text-decoration: none;
-        }
-
-        .brand-link:hover {
-            color: white;
-        }
+        .brand-link { color: var(--text); text-decoration: none; }
+        .brand-link:hover { color: white; }
         .nav-links { display:flex; gap:10px; }
         .nav-links a {
             color:#cbd5e1; text-decoration:none; padding:9px 14px; border-radius:999px; font-weight:850; font-size:14px;
@@ -130,8 +124,52 @@
         .price-chart-fill { fill:url(#chartFillGradient); }
         .price-chart-midline { stroke:rgba(250,204,21,.45); stroke-width:1.5; stroke-dasharray:6 7; }
         .price-chart-axis { fill:rgba(226,232,240,.72); font-size:13px; font-weight:900; }
+
+        /* ── Crowd Sentiment ───────────────────────────────────────────── */
+        .sentiment-card {
+            display:flex; align-items:center; justify-content:space-between; gap:14px;
+            border-radius:20px; padding:16px 20px; margin-bottom:18px;
+            border:1px solid rgba(148,163,184,.18);
+            background:rgba(2,6,23,.48);
+            transition: background 0.5s ease, border-color 0.5s ease;
+        }
+        .sentiment-left { display:flex; flex-direction:column; gap:4px; }
+        .sentiment-label { color:var(--muted); font-size:11px; font-weight:950; text-transform:uppercase; letter-spacing:.09em; }
+        .sentiment-text {
+            font-size:20px; font-weight:950; letter-spacing:-.03em;
+            transition: color 0.5s ease;
+            color: #aab0cc;
+        }
+        .sentiment-right { display:flex; flex-direction:column; align-items:flex-end; gap:4px; }
+        .sentiment-price-label { color:var(--muted); font-size:11px; font-weight:950; text-transform:uppercase; letter-spacing:.09em; }
+        .sentiment-price {
+            font-size:30px; font-weight:950; letter-spacing:-.05em;
+            transition: color 0.5s ease;
+            color: #aab0cc;
+        }
+        .sentiment-bar-wrap {
+            width:100%; height:6px; border-radius:999px; background:rgba(148,163,184,.14);
+            overflow:hidden; margin-top:8px; grid-column: 1 / -1;
+        }
+        .sentiment-bar {
+            height:100%; border-radius:999px;
+            background: linear-gradient(90deg, var(--red), var(--yellow), var(--green));
+            transition: width 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+            width: 50%;
+        }
+        .sentiment-sse-dot {
+            width:8px; height:8px; border-radius:999px; background:#94a3b8;
+            display:inline-block; margin-right:6px;
+            transition: background 0.4s ease;
+        }
+        .sentiment-sse-dot.live { background: var(--green); animation: ssePulse 1.8s ease infinite; }
+        @keyframes ssePulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.5;transform:scale(0.7)} }
+        /* ────────────────────────────────────────────────────────────────── */
+
         .bot-feed-list { display:grid; gap:8px; max-height:130px; overflow-y:auto; font-size:14px; color:#cbd5e1; }
         .bot-trade { display:flex; justify-content:space-between; gap:10px; background:rgba(15,23,42,.68); border:1px solid rgba(148,163,184,.12); border-radius:12px; padding:8px 10px; }
+        .bot-trade-new { animation: tradeSlideIn 0.35s ease; }
+        @keyframes tradeSlideIn { from{opacity:0;transform:translateY(-6px)} to{opacity:1;transform:translateY(0)} }
         .bot-buy { color:#86efac; font-weight:900; } .bot-sell { color:#fca5a5; font-weight:900; }
         .market-closed-warning { color:#fecaca; font-weight:900; }
         .outcome-grid,.button-row { display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-bottom:20px; }
@@ -286,6 +324,24 @@
                                 <div class="live-timer"><span id="marketTimer">--</span>s</div>
                                 <div><div class="live-label" style="text-align:right;">Volume</div><div class="live-volume" id="marketVolume">0 SC</div></div>
                             </div>
+
+                            <!-- ── Crowd Sentiment (NEW) ───────────────────────────── -->
+                            <div class="sentiment-card" id="sentimentCard">
+                                <div class="sentiment-left">
+                                    <div class="sentiment-label">
+                                        <span class="sentiment-sse-dot" id="sseDot"></span>Bot crowd sentiment
+                                    </div>
+                                    <div class="sentiment-text" id="sentimentText">Waiting for feed…</div>
+                                </div>
+                                <div class="sentiment-right">
+                                    <div class="sentiment-price-label">Implied Price</div>
+                                    <div class="sentiment-price" id="impliedPrice">–</div>
+                                </div>
+                                <div class="sentiment-bar-wrap" style="grid-column:unset;width:100%;margin-top:0;align-self:center;">
+                                    <div class="sentiment-bar" id="sentimentBar"></div>
+                                </div>
+                            </div>
+                            <!-- ─────────────────────────────────────────────────────── -->
 
                             <div class="price-chart-card">
                                 <div class="price-chart-header">
@@ -455,6 +511,220 @@
         let marketResolved = false;
         let resolvedResultPercent = null;
         let resolvedWinningSide = null;
+
+        // ── SSE trade feed ────────────────────────────────────────────────────
+        let sseSource = null;
+
+        const SENTIMENT_COLOURS = {
+            'strongly bullish': { bg:'rgba(5,46,22,.72)',  border:'rgba(34,197,94,.35)',  text:'#4ade80', price:'#4ade80' },
+            'bullish':          { bg:'rgba(5,46,22,.48)',  border:'rgba(34,197,94,.22)',  text:'#86efac', price:'#86efac' },
+            'neutral':          { bg:'rgba(2,6,23,.48)',   border:'rgba(148,163,184,.18)',text:'#94a3b8', price:'#94a3b8' },
+            'bearish':          { bg:'rgba(69,10,10,.48)', border:'rgba(239,68,68,.22)',  text:'#fca5a5', price:'#fca5a5' },
+            'strongly bearish': { bg:'rgba(69,10,10,.72)', border:'rgba(239,68,68,.38)',  text:'#ef4444', price:'#ef4444' },
+        };
+
+        function startSSEFeed() {
+            if (sseSource) {
+                sseSource.close();
+                sseSource = null;
+            }
+
+            const dot = document.getElementById("sseDot");
+            if (dot) dot.className = "sentiment-sse-dot";
+
+            sseSource = new EventSource("/api/trade-feed");
+
+            sseSource.onopen = () => {
+                const d = document.getElementById("sseDot");
+                if (d) d.className = "sentiment-sse-dot live";
+            };
+
+            sseSource.onmessage = (event) => {
+                try {
+                    const trade = JSON.parse(event.data);
+                    updateSentimentFromSSE(trade);
+                    appendSSETradeToFeed(trade);
+                } catch (e) {}
+            };
+
+            sseSource.onerror = () => {
+                const d = document.getElementById("sseDot");
+                if (d) d.className = "sentiment-sse-dot";
+            };
+        }
+
+        function stopSSEFeed() {
+            if (sseSource) {
+                sseSource.close();
+                sseSource = null;
+            }
+            const d = document.getElementById("sseDot");
+            if (d) d.className = "sentiment-sse-dot";
+        }
+
+        function updateSentimentFromSSE(trade) {
+            const card    = document.getElementById("sentimentCard");
+            const text    = document.getElementById("sentimentText");
+            const price   = document.getElementById("impliedPrice");
+            const bar     = document.getElementById("sentimentBar");
+
+            if (!card || !text || !price || !bar) return;
+
+            const sentiment    = trade.sentiment || "neutral";
+            const impliedPrice = Number(trade.implied_price || 50);
+            const colours      = SENTIMENT_COLOURS[sentiment] || SENTIMENT_COLOURS["neutral"];
+
+            card.style.background   = colours.bg;
+            card.style.borderColor  = colours.border;
+            text.style.color        = colours.text;
+            text.textContent        = sentiment;
+            price.style.color       = colours.price;
+            price.textContent       = impliedPrice.toFixed(1) + "¢";
+            bar.style.width         = impliedPrice + "%";
+        }
+
+        function appendSSETradeToFeed(trade) {
+            // Only show bot-feed rows while in normal market mode (not during live bot interval)
+            if (currentMarketMode === "live") return;
+            if (!currentMarket) return;
+
+            const list = document.getElementById("botFeedList");
+            if (!list) return;
+
+            // If it's the placeholder text, clear it
+            if (list.innerText === "Market has not opened yet." || list.innerText === "Loading market activity...") {
+                list.innerHTML = "";
+            }
+
+            const row = document.createElement("div");
+            row.className = "bot-trade bot-trade-new";
+            const dirClass = (trade.sentiment === "strongly bullish" || trade.sentiment === "bullish") ? "bot-buy" : "bot-sell";
+            const dirLabel = (trade.sentiment === "strongly bullish" || trade.sentiment === "bullish") ? "BUY" : "SELL";
+            row.innerHTML = `
+                <span>
+                    <strong>${trade.course}</strong>
+                    <span class="${dirClass}">${dirLabel}</span>
+                    <span style="color:#94a3b8;font-size:12px;">${trade.sentiment}</span>
+                </span>
+                <span>${impliedPriceLabel(trade.implied_price)}</span>
+            `;
+
+            list.prepend(row);
+
+            // Keep feed at most 8 rows
+            while (list.children.length > 8) {
+                list.removeChild(list.lastChild);
+            }
+        }
+
+        function impliedPriceLabel(p) {
+            return Number(p).toFixed(1) + "¢";
+        }
+        // ─────────────────────────────────────────────────────────────────────
+
+        // ── Animated SVG price chart ──────────────────────────────────────────
+        // Each entry: { rawPrice, displayPrice, animFrom, animTo, startTs, duration }
+        const CHART_ANIM_MS = 500;
+        let chartPoints   = [];   // { value: number } — committed values
+        let pendingPoint  = null; // next value waiting to animate in
+        let animatingTo   = null; // { from, to, startTs } — in-flight animation
+        let rafId         = null;
+
+        function lerp(a, b, t) { return a + (b - a) * t; }
+        function easeOut(t)    { return 1 - Math.pow(1 - t, 3); }
+
+        function priceToY(price) {
+            const clamp = Math.max(5, Math.min(95, price));
+            return 220 - ((clamp - 5) / 90) * 220;
+        }
+
+        function buildSVGPath(pts) {
+            if (pts.length === 0) return { line: "", fill: "" };
+            const W = 700;
+            const coords = pts.map((p, i) => ({
+                x: pts.length === 1 ? 0 : (i / (pts.length - 1)) * W,
+                y: priceToY(p),
+            }));
+
+            // Smooth cubic bezier through points
+            let line = `M ${coords[0].x} ${coords[0].y}`;
+            for (let i = 1; i < coords.length; i++) {
+                const prev = coords[i - 1];
+                const curr = coords[i];
+                const cpX  = (prev.x + curr.x) / 2;
+                line += ` C ${cpX} ${prev.y} ${cpX} ${curr.y} ${curr.x} ${curr.y}`;
+            }
+
+            const last  = coords[coords.length - 1];
+            const first = coords[0];
+            const fill  = line + ` L ${last.x} 220 L ${first.x} 220 Z`;
+
+            return { line, fill };
+        }
+
+        function drawAnimatedChart(ts) {
+            rafId = requestAnimationFrame(drawAnimatedChart);
+
+            const lineEl = document.getElementById("priceChartLine");
+            const fillEl = document.getElementById("priceChartFill");
+            if (!lineEl || !fillEl) return;
+
+            // Kick off animation for pending point
+            if (pendingPoint !== null && animatingTo === null) {
+                const from = chartPoints.length > 0 ? chartPoints[chartPoints.length - 1] : pendingPoint;
+                animatingTo = { from, to: pendingPoint, startTs: ts };
+                pendingPoint = null;
+            }
+
+            // Build display values
+            let displayPts = [...chartPoints];
+
+            if (animatingTo !== null) {
+                const elapsed  = ts - animatingTo.startTs;
+                const progress = Math.min(elapsed / CHART_ANIM_MS, 1);
+                const eased    = easeOut(progress);
+                const current  = lerp(animatingTo.from, animatingTo.to, eased);
+                displayPts     = [...displayPts, current];
+
+                if (progress >= 1) {
+                    chartPoints.push(animatingTo.to);
+                    if (chartPoints.length > MAX_PRICE_HISTORY) chartPoints.shift();
+                    animatingTo = null;
+                }
+            }
+
+            if (displayPts.length < 1) return;
+
+            const { line, fill } = buildSVGPath(displayPts);
+            lineEl.setAttribute("d", line);
+            fillEl.setAttribute("d", fill);
+        }
+
+        function startChartLoop() {
+            if (rafId) cancelAnimationFrame(rafId);
+            rafId = requestAnimationFrame(drawAnimatedChart);
+        }
+
+        function stopChartLoop() {
+            if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
+        }
+
+        function resetPriceChart() {
+            chartPoints  = [Number(liveHigherPrice)];
+            pendingPoint = null;
+            animatingTo  = null;
+            startChartLoop();
+            // also update the current price badge immediately
+            const cur = document.getElementById("chartCurrentPrice");
+            if (cur) cur.innerText = liveHigherPrice + "¢";
+        }
+
+        function addPricePoint(price) {
+            pendingPoint = Number(price);
+            const cur = document.getElementById("chartCurrentPrice");
+            if (cur) cur.innerText = price + "¢";
+        }
+        // ─────────────────────────────────────────────────────────────────────
 
         function getWalletBalance() {
             const stored = localStorage.getItem(WALLET_KEY);
@@ -734,6 +1004,9 @@
                 updateWalletDisplay();
                 renderLeaderboard();
 
+                // Start SSE feed whenever a market is open
+                startSSEFeed();
+
             } catch (error) {
                 console.error("loadMarket failed:", error);
                 document.getElementById("loading").innerText = "Something went wrong building the market.";
@@ -742,6 +1015,8 @@
 
         function backToSetup() {
             stopLiveMarket();
+            stopSSEFeed();
+            stopChartLoop();
             marketOpen = false;
 
             document.getElementById("marketSection").style.display = "none";
@@ -811,62 +1086,6 @@
             price += trend >= 0 ? confidenceBoost : -confidenceBoost;
 
             return Math.max(5, Math.min(95, Math.round(price)));
-        }
-
-        function resetPriceChart() {
-            priceHistory = [{ price:Number(liveHigherPrice), time:Date.now() }];
-            renderPriceChart();
-        }
-
-        function addPricePoint(price) {
-            priceHistory.push({ price:Number(price), time:Date.now() });
-            if (priceHistory.length > MAX_PRICE_HISTORY) priceHistory.shift();
-        }
-
-        function priceToY(price) {
-            const minPrice = 5;
-            const maxPrice = 95;
-            const chartHeight = 220;
-            const clampedPrice = Math.max(minPrice, Math.min(maxPrice, price));
-            const ratio = (clampedPrice - minPrice) / (maxPrice - minPrice);
-            return chartHeight - ratio * chartHeight;
-        }
-
-        function renderPriceChart() {
-            const line = document.getElementById("priceChartLine");
-            const fill = document.getElementById("priceChartFill");
-            const current = document.getElementById("chartCurrentPrice");
-
-            if (line === null || fill === null || current === null) return;
-
-            current.innerText = liveHigherPrice + "¢";
-
-            if (priceHistory.length === 0) {
-                line.setAttribute("d", "");
-                fill.setAttribute("d", "");
-                return;
-            }
-
-            const chartWidth = 700;
-            const chartHeight = 220;
-
-            const points = priceHistory.map((point, index) => {
-                const x = priceHistory.length === 1 ? 0 : (index / (priceHistory.length - 1)) * chartWidth;
-                const y = priceToY(point.price);
-                return { x, y };
-            });
-
-            let linePath = "";
-            points.forEach((point, index) => {
-                linePath += index === 0 ? `M ${point.x} ${point.y}` : ` L ${point.x} ${point.y}`;
-            });
-
-            const first = points[0];
-            const last = points[points.length - 1];
-            const fillPath = linePath + ` L ${last.x} ${chartHeight}` + ` L ${first.x} ${chartHeight}` + " Z";
-
-            line.setAttribute("d", linePath);
-            fill.setAttribute("d", fillPath);
         }
 
         function startNormalMarket() {
@@ -1134,7 +1353,6 @@
             document.getElementById("lowerPrice").innerText = liveLowerPrice + "¢";
 
             addPricePoint(liveHigherPrice);
-            renderPriceChart();
         }
 
         function renderBotFeed() {

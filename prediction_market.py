@@ -11,8 +11,10 @@ from game import (
     get_available_offerings_for_course,
     get_answer_from_offering,
     answer_option_name,
+    extract_json_data
 )
 
+from request_secat_data import getCourseData
 
 # Keep this as [1] if you only want Strongly Agree.
 # Use [1, 4] if you want Strongly Agree and Disagree.
@@ -543,7 +545,7 @@ def get_questions_for_course(course_code_value):
     else:
         print(f"[QUESTIONS LOAD ONCE] {offering_display(newest_offering)}")
 
-        response = request_secat_data.getCourseData(
+        response = getCourseData(
             newest_offering["course"],
             newest_offering["sem"],
             newest_offering["year"]
@@ -584,6 +586,44 @@ def get_questions_for_course(course_code_value):
         })
 
     return questions
+    
+def summarise_trades(market: dict) -> dict:
+    """
+    Derives a crowd-sentiment signal from a market dict.
+
+    implied_price  – a 0–100 probability that bots collectively assign to
+                     the answer being "true" for the upcoming semester.
+                     Blends the weighted prediction with confidence so a
+                     high-confidence 70% prediction scores higher than a
+                     low-confidence 90% one.
+
+    sentiment      – a human-readable label: "strongly bullish",
+                     "bullish", "neutral", "bearish", "strongly bearish".
+    """
+    prediction = market.get("initial_prediction", 50.0)
+    confidence  = market.get("confidence", 0.0)           # 0–100
+
+    # Blend: weight the prediction by confidence, regress toward 50 when uncertain
+    weight       = confidence / 100.0
+    implied_price = round(prediction * weight + 50.0 * (1 - weight), 2)
+
+    if implied_price >= 70:
+        sentiment = "strongly bullish"
+    elif implied_price >= 55:
+        sentiment = "bullish"
+    elif implied_price >= 45:
+        sentiment = "neutral"
+    elif implied_price >= 30:
+        sentiment = "bearish"
+    else:
+        sentiment = "strongly bearish"
+
+    return {
+        "implied_price": implied_price,
+        "sentiment":     sentiment,
+        "raw_prediction": prediction,
+        "confidence":     confidence,
+    }
 
 if __name__ == "__main__":
     print()
