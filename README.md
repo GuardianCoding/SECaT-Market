@@ -73,7 +73,7 @@ http://127.0.0.1:5000
 
 ## Static Files
 
-The higher or lower image is from the website https://www.higherorlowergame.com
+The higher or lower image is from the website https://www.higherorlowergame.com.
 The game is inspired by it too.
 
 ---
