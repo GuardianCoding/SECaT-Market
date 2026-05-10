@@ -30,7 +30,7 @@ SECaT Arcade turns real UQ student survey data into games. Higher or Lower lets 
 ### 1. Clone the repository
 
 ```bash
-git clone <your-repository-url>
+git clone https://github.com/GuardianCoding/SECaT-Market
 cd SECaT-Market
 ```
 
