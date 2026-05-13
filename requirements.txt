@@ -2,3 +2,4 @@ Flask
 gunicorn
 playwright
 gevent
+psycopg2-binary
