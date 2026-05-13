@@ -282,32 +282,6 @@ def predict_percentage_for_course(
     }
 
 
-def make_market_cache_key(
-    course_code_value,
-    question_num,
-    answer_num,
-    max_history,
-    before_year=None,
-    before_sem=None
-):
-    """
-    Builds a stable cache key for a prediction market.
-    """
-
-    before_part = "latest"
-
-    if before_year is not None and before_sem is not None:
-        before_part = f"before_sem{before_sem}_{before_year}"
-
-    return (
-        f"market_{course_code_value.upper()}"
-        f"_q{question_num}"
-        f"_a{answer_num}"
-        f"_h{max_history}"
-        f"_{before_part}"
-    )
-
-
 def create_prediction_market(
     course,
     question_num=None,
@@ -336,19 +310,9 @@ def create_prediction_market(
     code = course_code(course)
     name = course_name(course)
 
-    cache_key = make_market_cache_key(
-        code,
-        question_num,
-        answer_num,
-        max_history,
-        before_year=before_year,
-        before_sem=before_sem
-    )
-
     if use_cache:
-        cached_market = secat_cache.get_cached_json(
-            cache_key,
-            secat_cache.MARKET_CACHE_SECONDS
+        cached_market = secat_cache.get_cached_market(
+            code, question_num, answer_num, max_history, before_year, before_sem
         )
 
         if cached_market is not None:
@@ -430,7 +394,9 @@ def create_prediction_market(
 
     if use_cache:
         print(f"[MARKET CACHE SAVE] {code} Q{question_num} A{answer_num}")
-        secat_cache.set_cached_json(cache_key, market)
+        secat_cache.set_cached_market(
+            code, question_num, answer_num, max_history, market, before_year, before_sem
+        )
 
     return market
 
@@ -528,15 +494,8 @@ def get_questions_for_course(course_code_value):
 
     newest_offering = offerings[0]
 
-    cache_key = (
-        f"secat_data_{newest_offering['course']}"
-        f"_sem{newest_offering['sem']}"
-        f"_{newest_offering['year']}"
-    )
-
-    cached_course_data = secat_cache.get_cached_json(
-        cache_key,
-        secat_cache.SECAT_DATA_CACHE_SECONDS
+    cached_course_data = secat_cache.get_cached_secat_data(
+        newest_offering["course"], newest_offering["sem"], newest_offering["year"]
     )
 
     if cached_course_data is not None:
@@ -560,7 +519,9 @@ def get_questions_for_course(course_code_value):
         except ValueError:
             return []
 
-        secat_cache.set_cached_json(cache_key, course_data)
+        secat_cache.set_cached_secat_data(
+            newest_offering["course"], newest_offering["sem"], newest_offering["year"], course_data
+        )
 
     questions_by_num = {}
 

@@ -280,12 +280,8 @@ def offering_distance(offering_a, offering_b):
 
 def get_available_offerings_for_course(course_code_value: str, name: str = ""):
     course_code_value = course_code_value.upper()
-    cache_key = f"offerings_{course_code_value}"
 
-    cached = secat_cache.get_cached_json(
-        cache_key,
-        secat_cache.OFFERINGS_CACHE_SECONDS
-    )
+    cached = secat_cache.get_cached_offerings(course_code_value)
 
     if cached is not None:
         print(f"[OFFERINGS CACHE HIT] {course_code_value}")
@@ -323,7 +319,7 @@ def get_available_offerings_for_course(course_code_value: str, name: str = ""):
         f"{len(parsed_offerings)} usable offering(s)"
     )
 
-    secat_cache.set_cached_json(cache_key, parsed_offerings)
+    secat_cache.set_cached_offerings(course_code_value, parsed_offerings)
 
     recent_offerings = filter_offerings_to_final_years(parsed_offerings)
 
@@ -385,15 +381,8 @@ def get_closest_course_offering(courses, target_offering):
 
 
 def get_answer_from_offering(offering, question_num: int, answer_num: int):
-    cache_key = (
-        f"secat_data_{offering['course']}"
-        f"_sem{offering['sem']}"
-        f"_{offering['year']}"
-    )
-
-    cached_course_data = secat_cache.get_cached_json(
-        cache_key,
-        secat_cache.SECAT_DATA_CACHE_SECONDS
+    cached_course_data = secat_cache.get_cached_secat_data(
+        offering["course"], offering["sem"], offering["year"]
     )
 
     if cached_course_data is not None:
@@ -420,7 +409,7 @@ def get_answer_from_offering(offering, question_num: int, answer_num: int):
             return None
 
         print(f"[DATA SAVE] Saving SECaT data for {offering_display(offering)}")
-        secat_cache.set_cached_json(cache_key, course_data)
+        secat_cache.set_cached_secat_data(offering["course"], offering["sem"], offering["year"], course_data)
 
     matching_results = [
         item for item in course_data
