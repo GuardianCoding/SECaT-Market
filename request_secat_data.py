@@ -5,109 +5,122 @@ def getCourseData(courseCode: str, sem: int | None = None, year: int | None = No
     courseCode = courseCode.upper()
 
     with sync_playwright() as p:
-        browser = p.chromium.launch()
+        browser = p.chromium.launch(
+            headless=True,
+            args=["--no-sandbox", "--disable-dev-shm-usage"]
+        )
         page = browser.new_page()
+        page.set_default_timeout(15000)
 
         try:
-            page.goto("https://www.pbi.uq.edu.au/clientservices/SECaT/embedChart.aspx")
+            page.goto(
+                "https://www.pbi.uq.edu.au/clientservices/SECaT/embedChart.aspx",
+                wait_until="domcontentloaded",
+                timeout=20000,
+            )
 
-            page.click(f"text={courseCode[:1]}")
-            page.click(f"text={courseCode[:4]}")
-            page.click(f"text={courseCode}")
+            # Click first letter
+            page.locator(f"text={courseCode[:1]}").first.click()
 
-            page.wait_for_timeout(500)
+            # Wait for course prefix to appear, then click it
+            page.locator(f"text={courseCode[:4]}").first.wait_for(state="visible", timeout=10000)
+            page.locator(f"text={courseCode[:4]}").first.click()
+
+            # Wait for exact course code to appear, then click it
+            page.locator(f"text={courseCode}").first.wait_for(state="visible", timeout=10000)
+            page.locator(f"text={courseCode}").first.click()
 
             offerings_locator = page.locator(f"text={courseCode}: Semester")
-            offering_count = offerings_locator.count()
 
-            if offering_count == 0:
-                browser.close()
+            try:
+                offerings_locator.first.wait_for(state="visible", timeout=10000)
+            except PlaywrightTimeoutError:
                 return {
                     "course": courseCode,
                     "available_offerings": [],
                     "selected_offering": None,
                     "data": None,
-                    "error": f"No offerings found for {courseCode}"
+                    "error": f"No offerings found for {courseCode}",
                 }
 
+            offering_count = offerings_locator.count()
+
             available_offerings = []
-
             for i in range(offering_count):
-                offering_text = offerings_locator.nth(i).inner_text().strip()
-                available_offerings.append(offering_text)
+                available_offerings.append(
+                    offerings_locator.nth(i).inner_text().strip()
+                )
 
-            # If user only wants to see available offerings
             if sem is None or year is None:
-                browser.close()
                 return {
                     "course": courseCode,
                     "available_offerings": available_offerings,
                     "selected_offering": None,
                     "data": None,
-                    "error": None
+                    "error": None,
                 }
 
             target_offering = f"{courseCode}: Semester {sem}, {year}"
-
             matching_offering = page.locator(f"text={target_offering}")
 
             if matching_offering.count() == 0:
-                browser.close()
                 return {
                     "course": courseCode,
                     "available_offerings": available_offerings,
                     "selected_offering": None,
                     "data": None,
-                    "error": f"{target_offering} is not available"
+                    "error": f"{target_offering} is not available",
                 }
 
             matching_offering.first.click()
 
-            page.wait_for_timeout(500)
+            # Wait until the SECaT JS data appears, but don't wait longer than needed
+            try:
+                page.wait_for_function(
+                    "() => document.documentElement.innerHTML.includes('courseSECATData')",
+                    timeout=10000,
+                )
+            except PlaywrightTimeoutError:
+                pass
 
             content = page.content()
-
             start = content.find("courseSECATData")
             end = content.find("var title = '")
 
             if start == -1 or end == -1:
-                browser.close()
                 return {
                     "course": courseCode,
                     "available_offerings": available_offerings,
                     "selected_offering": target_offering,
                     "data": None,
-                    "error": f"Could not find courseSECATData for {target_offering}"
+                    "error": f"Could not find courseSECATData for {target_offering}",
                 }
-
-            data = content[start:end]
-
-            browser.close()
 
             return {
                 "course": courseCode,
                 "available_offerings": available_offerings,
                 "selected_offering": target_offering,
-                "data": data,
-                "error": None
+                "data": content[start:end],
+                "error": None,
             }
 
         except PlaywrightTimeoutError:
-            browser.close()
             return {
                 "course": courseCode,
                 "available_offerings": [],
                 "selected_offering": None,
                 "data": None,
-                "error": f"Timeout while loading {courseCode}"
+                "error": f"Timeout while loading {courseCode}",
             }
 
         except Exception as e:
-            browser.close()
             return {
                 "course": courseCode,
                 "available_offerings": [],
                 "selected_offering": None,
                 "data": None,
-                "error": str(e)
+                "error": str(e),
             }
+
+        finally:
+            browser.close()
