@@ -3,6 +3,7 @@ const BASE_LOSS_PENALTY = 15;
 const MULTIPLIER_STEP = 0.25;
 const MAX_MULTIPLIER = 5;
 const LOSS_STREAK_STEP = 0.25;
+const MIN_CHALLENGER_LOADING_MS = 1800;
 const MAX_LOSS_MULTIPLIER = 4;
 
 let currentRound = null;
@@ -766,7 +767,13 @@ async function advanceChainAfterCorrect() {
     startShuffleAnimation();
 
     try {
-        const challenger = await fetchChallenger();
+        const [challenger] = await Promise.all([
+
+            fetchChallenger(),
+
+            wait(MIN_CHALLENGER_LOADING_MS)
+
+        ]);
 
         stopShuffleAnimation();
         playSound("found");
